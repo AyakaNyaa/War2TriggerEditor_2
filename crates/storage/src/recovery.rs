@@ -33,8 +33,8 @@ pub fn read(directory: &Path, id: &str) -> Result<RecoveryState> {
     if fs::metadata(&target).map_err(io_fault)?.len() > 128 * 1024 * 1024 {
         return Err(Fault::new("file.too_large"));
     }
-    let state: RecoveryState =
-        serde_json::from_slice(&fs::read(target).map_err(io_fault)?).map_err(io_fault)?;
+    let state: RecoveryState = serde_json::from_slice(&fs::read(target).map_err(io_fault)?)
+        .map_err(|error| Fault::new("recovery.invalid_snapshot").detail(error))?;
     if state.version != 1 || hash(&state.source.bytes) != state.source.hash {
         return Err(Fault::new("recovery.invalid_snapshot"));
     }
@@ -52,12 +52,20 @@ pub fn list(directory: &Path) -> Result<Vec<RecoveryEntry>> {
         let Some(id) = name.strip_suffix(".json") else {
             continue;
         };
-        // Invalid snapshots remain on disk for investigation, never silently deleted.
-        let state = read(directory, id)?;
+        if uuid::Uuid::parse_str(id).is_err() {
+            continue;
+        }
+        // Report damaged snapshots individually and keep their bytes for recovery.
+        // One bad entry must not hide the other sessions after a crash.
+        let (name, revision, diagnostics) = match read(directory, id) {
+            Ok(state) => (state.source.name, state.revision, Vec::new()),
+            Err(error) => (id.to_owned(), 0, vec![error]),
+        };
         entries.push(RecoveryEntry {
             id: id.into(),
-            name: state.source.name,
-            revision: state.revision,
+            name,
+            revision,
+            diagnostics,
         });
     }
     Ok(entries)
@@ -99,5 +107,45 @@ mod tests {
         write(dir.path(), &id, &state).unwrap();
         assert!(read(dir.path(), &id).is_err());
         assert!(read(dir.path(), "../escape").is_err());
+    }
+
+    #[test]
+    fn one_damaged_snapshot_does_not_hide_healthy_recovery_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let good = uuid::Uuid::new_v4().to_string();
+        let bad = uuid::Uuid::new_v4().to_string();
+        let bytes = vec![254, 237];
+        let state = RecoveryState {
+            version: 1,
+            source: FileSnapshot {
+                name: "healthy.w2tr".into(),
+                path: None,
+                hash: hash(&bytes),
+                bytes,
+            },
+            commands: vec![],
+            revision: 2,
+        };
+        write(dir.path(), &good, &state).unwrap();
+        let damaged = path(dir.path(), &bad).unwrap();
+        fs::write(&damaged, b"{damaged").unwrap();
+        fs::write(dir.path().join("unrelated.json"), b"{}").unwrap();
+        let entries = list(dir.path()).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert!(entries
+            .iter()
+            .find(|entry| entry.id == good)
+            .unwrap()
+            .diagnostics
+            .is_empty());
+        assert_eq!(
+            entries.iter().find(|entry| entry.id == good).unwrap().name,
+            "healthy.w2tr"
+        );
+        let entry =
+            serde_json::to_value(entries.iter().find(|entry| entry.id == bad).unwrap()).unwrap();
+        assert_eq!(entry["diagnostics"][0]["code"], "recovery.invalid_snapshot");
+        assert_eq!(fs::read(damaged).unwrap(), b"{damaged");
+        assert!(dir.path().join("unrelated.json").exists());
     }
 }

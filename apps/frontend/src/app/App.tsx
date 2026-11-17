@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../shared/api';
+import { useModalReturnFocus } from '../shared/Modal';
 import { translator, type Locale } from '../shared/i18n';
 import { blockMatches, matches, commandDescription } from '../shared/presentation';
 import type { BackupEntry, ChangePreview, CommandSpec, DocumentView, RecoveryEntry, ScenarioBlock } from '../shared/generated';
@@ -22,14 +23,16 @@ export function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [selection, setSelection] = useState<BuilderSelection>();
-  const [preview, setPreview] = useState<{ value: ChangePreview; index: number }>();
+  const [preview, setPreview] = useState<{ documentId: string; value: ChangePreview; index: number }>();
   const [help, setHelp] = useState(false);
   const [recoveries, setRecoveries] = useState<RecoveryEntry[]>([]);
   const [showRecovery, setShowRecovery] = useState(false);
   const [backups, setBackups] = useState<BackupEntry[]>();
   const counter = useRef(0);
   const search = useRef<HTMLInputElement>(null);
+  const returnFocus = useModalReturnFocus();
   const t = translator(locale);
+  const activePreview = preview?.documentId === doc?.id && preview?.value.base_revision === doc?.revision ? preview : undefined;
   const diagnostics = [...(doc?.diagnostics ?? []), ...(doc?.program.diagnostics ?? [])];
   useEffect(() => { api.catalog().then(setCatalog).catch(() => setError('api.unavailable')); api.recoveries().then(setRecoveries).catch(() => {}); }, []);
   useEffect(() => { document.documentElement.lang = locale; localStorage.setItem('war2.locale', locale); setNotice(''); }, [locale]);
@@ -41,7 +44,7 @@ export function App() {
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); (document.querySelector<HTMLInputElement>('dialog[open] input[type=search]') ?? search.current)?.focus(); }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save(false); }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); if (!document.querySelector('dialog[open]')) save(false); }
     };
     window.addEventListener('keydown', keys); return () => window.removeEventListener('keydown', keys);
   });
@@ -53,6 +56,7 @@ export function App() {
   const canLeave = () => !draft || window.confirm(t('discardDraft'));
   const chooseBlock = (next: DocumentView, block: ScenarioBlock, guard = true) => {
     if (guard && !canLeave()) return;
+    setPreview(undefined);
     setDraft(false);
     if (block.kind === 'rule' && block.editable_rule && block.condition) {
       setSelection({ key: ++counter.current, mode: 'rule', index: block.start, replaceEnd: block.end,
@@ -67,7 +71,7 @@ export function App() {
   };
   function open(action: () => Promise<DocumentView>) {
     if ((doc?.dirty || draft) && !window.confirm(t('closeDirty'))) return;
-    work(async () => { const next = await action(); setDoc(next); setSelection(undefined); setDraft(false); setQuery(''); setNotice(t('notice.opened')); const first = next.program.blocks.find((b) => b.depth === 0); if (first) chooseBlock(next, first, false); });
+    work(async () => { const next = await action(); setPreview(undefined); setDoc(next); setSelection(undefined); setDraft(false); setQuery(''); setNotice(t('notice.opened')); const first = next.program.blocks.find((b) => b.depth === 0); if (first) chooseBlock(next, first, false); });
   }
   function newRule() {
     if (!doc || !canLeave()) return;
@@ -93,7 +97,7 @@ export function App() {
       }) : await api.commandPreview(doc.id, { expected_revision: doc.revision, index: edit.index,
         action: edit.instruction ? 'replace' : 'add', opcode: value.actions[0].opcode,
         values: value.actions[0].values ?? [], text: value.actions[0].text });
-      if (showPreview) setPreview({ value: result, index: edit.index });
+      if (showPreview) setPreview({ documentId: doc.id, value: result, index: edit.index });
       else { accept(await api.apply(doc.id, result), edit.index); setNotice(t('notice.applied')); }
     });
   }
@@ -136,8 +140,8 @@ export function App() {
       {notice && <span className="status-notice" role="status" title={notice}>✓ {notice}</span>}
       <span>{doc && `${doc.program.length ?? '—'} ${doc.kind === 'pud' ? `/ ${doc.capacity.toLocaleString()}` : ''} ${t('bytes')} · `}v0.3.0</span></footer>
     {catalogOpen && <Catalog catalog={catalog} initialQuery={query} locale={locale} t={t} disabled={busy || !doc?.writable} onChoose={choose} onClose={() => setCatalogOpen(false)} />}
-    {preview && doc && <Preview preview={preview.value} document={doc} busy={busy} t={t} cancel={() => setPreview(undefined)} apply={() => work(async () => { accept(await api.apply(doc.id, preview.value), preview.index); setNotice(t('notice.applied')); })} />}
-    <FileDialogs help={help} setHelp={setHelp} t={t} locale={locale} busy={busy} recoveries={showRecovery ? recoveries : undefined} closeRecovery={() => setShowRecovery(false)} backups={backups} closeBackups={() => setBackups(undefined)}
+    {activePreview && doc && <Preview preview={activePreview.value} document={doc} busy={busy} returnFocus={returnFocus.current} t={t} cancel={() => setPreview(undefined)} apply={() => work(async () => { accept(await api.apply(activePreview.documentId, activePreview.value), activePreview.index); setNotice(t('notice.applied')); })} />}
+    <FileDialogs help={help} setHelp={setHelp} t={t} locale={locale} busy={busy} returnFocus={returnFocus.current} recoveries={showRecovery ? recoveries : undefined} closeRecovery={() => setShowRecovery(false)} backups={backups} closeBackups={() => setBackups(undefined)}
       onRecover={(id) => { if ((doc?.dirty || draft) && !window.confirm(t('closeDirty'))) return; work(async () => { accept(await api.recover(id)); setShowRecovery(false); }); }}
       onRestore={(id) => { if (!doc || !window.confirm(t('restore.confirm'))) return; work(async () => { const result = await api.restore(doc, id); accept(result.document); setBackups(undefined); setNotice(`${t('backup')}: ${result.receipt.backup}`); }); }} />
   </div>;

@@ -24,6 +24,7 @@ pub struct RecoveryEntry {
     pub id: String,
     pub name: String,
     pub revision: u64,
+    pub diagnostics: Vec<crate::Fault>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
