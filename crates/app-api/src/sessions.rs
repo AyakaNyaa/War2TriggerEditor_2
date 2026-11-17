@@ -173,6 +173,8 @@ impl Editor {
             revision: session.revision,
             dirty: bytes != session.source.bytes,
             writable: Self::writable(session),
+            can_undo: !session.undo.is_empty(),
+            can_redo: !session.redo.is_empty(),
             capacity: session.capacity,
             original_size: session.source.bytes.len(),
             program,
@@ -206,6 +208,9 @@ impl Editor {
     pub fn apply(&mut self, id: &str, request: ChangeRequest) -> Result<DocumentView> {
         self.preview(id, &request)?;
         let session = self.session(id)?;
+        if session.commands == request.commands {
+            return self.view(id);
+        }
         self.services.storage.checkpoint(
             id,
             &RecoveryState {

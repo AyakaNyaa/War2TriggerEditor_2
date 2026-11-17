@@ -10,6 +10,8 @@ pub struct DocumentView {
     pub revision: u64,
     pub dirty: bool,
     pub writable: bool,
+    pub can_undo: bool,
+    pub can_redo: bool,
     pub capacity: usize,
     pub original_size: usize,
     pub program: Program,

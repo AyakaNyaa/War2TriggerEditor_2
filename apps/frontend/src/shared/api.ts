@@ -8,8 +8,9 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
     method: body === undefined ? 'GET' : 'POST',
     headers: { 'Content-Type': 'application/json', 'X-War2-Session': token },
     body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  }).catch(() => { throw new Error('api.unavailable'); });
   if (!response.ok) {
+    if (response.status === 413) throw new Error('file.too_large');
     const error = await response.json().catch(() => ({ code: 'api.unavailable' }));
     throw new Error(error.code ?? 'api.unavailable');
   }

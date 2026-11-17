@@ -3,6 +3,8 @@ import type { Fault } from './Fault';
 import type { Program } from './Program';
 import type { SectionView } from './SectionView';
 export type DocumentView = {
+  "can_redo": boolean;
+  "can_undo": boolean;
   "capacity": number;
   "diagnostics": Array<Fault>;
   "dirty": boolean;

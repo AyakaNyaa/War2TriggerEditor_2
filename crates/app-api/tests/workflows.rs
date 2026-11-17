@@ -162,3 +162,68 @@ fn recovery_survives_a_new_editor_instance_and_save_cleans_up_the_checkpoint() {
     assert_eq!(fs::read(&path).unwrap(), original);
     assert_eq!(second.backups(&view.id).unwrap().len(), 2);
 }
+
+#[test]
+fn unchanged_apply_keeps_revision_history_and_recovery_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut editor = editor(dir.path());
+    let file = editor
+        .services
+        .storage
+        .import("same.w2tr", &[5, 0, 1, 254, 237, 0, 253])
+        .unwrap();
+    let view = editor.open(file).unwrap();
+    let next = editor
+        .apply(
+            &view.id,
+            ChangeRequest {
+                expected_revision: 0,
+                commands: vec![vec![5, 0, 1]],
+            },
+        )
+        .unwrap();
+    assert_eq!(next.revision, 0);
+    assert!(!next.dirty);
+    assert!(!next.can_undo);
+    assert!(!next.can_redo);
+    assert!(editor.services.storage.recoveries().unwrap().is_empty());
+}
+
+#[test]
+fn history_availability_follows_apply_undo_redo_and_new_edits() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut editor = editor(dir.path());
+    let file = editor
+        .services
+        .storage
+        .import("history.w2tr", &[5, 0, 1, 254, 237, 0, 253])
+        .unwrap();
+    let view = editor.open(file).unwrap();
+    assert!(!view.can_undo && !view.can_redo);
+    let apply = |editor: &mut Editor, revision, value| {
+        editor
+            .apply(
+                &view.id,
+                ChangeRequest {
+                    expected_revision: revision,
+                    commands: vec![vec![5, 0, value]],
+                },
+            )
+            .unwrap()
+    };
+    let changed = apply(&mut editor, 0, 2);
+    assert!(changed.can_undo && !changed.can_redo);
+    let same = apply(&mut editor, 1, 2);
+    assert_eq!(same.revision, 1);
+    let undone = editor.history(&view.id, 1, false).unwrap();
+    assert!(!undone.can_undo && undone.can_redo);
+    let redone = editor.history(&view.id, 2, true).unwrap();
+    assert!(redone.can_undo && !redone.can_redo);
+    editor.history(&view.id, 3, false).unwrap();
+    let different = apply(&mut editor, 4, 3);
+    assert!(different.can_undo && !different.can_redo);
+    assert_eq!(
+        editor.view(&view.id).unwrap().program.instructions[0].bytes,
+        vec![5, 0, 3]
+    );
+}
