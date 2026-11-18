@@ -6,8 +6,8 @@ Rust + React/TypeScript, отдельные крейты, единый лока�
 
 ## Запуск
 
-[Скачать тестовую сборку для Windows x64](https://github.com/AyakaNyaa/War2TriggerEditor/releases/tag/v0.3.0-preview.1).
-Скачайте **War2TriggerEditor-preview.zip**, распакуйте и запустите **War2TriggerEditor.exe**.
+[Скачать тестовую сборку для Windows x64](https://github.com/AyakaNyaa/War2TriggerEditor_2/releases/download/v0.3.0-preview.2/War2TriggerEditor-preview.zip).
+Распакуйте **War2TriggerEditor-preview.zip** и запустите **War2TriggerEditor.exe**.
 [Пошаговая инструкция запуска](docs/RUN_RU.md).
 
 После самостоятельной сборки EXE находится в `target/debug/war2-editor.exe`.
@@ -57,7 +57,7 @@ Windows должен иметь WebView2 Runtime. Интернет для ред
 [Каталог команд](docs/images/catalogue-2026.png) ·
 [Стартовый экран](docs/images/welcome-2026.png).
 
-Новые улучшения доступны в исходниках этой ветки.
+В тестовую сборку включены улучшения из основной ветки репозитория.
 Для самостоятельной сборки см. [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 Добавлены настройки плотности, масштаба и контраста; изменяемая ширина панели;

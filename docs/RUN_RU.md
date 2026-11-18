@@ -2,11 +2,9 @@
 
 ## Готовая Windows-сборка
 
-1. Откройте [страницу тестового выпуска](https://github.com/AyakaNyaa/War2TriggerEditor/releases/tag/v0.3.0-preview.1).
-2. В разделе Assets скачайте **War2TriggerEditor-preview.zip**.
-   Архивы **Source code** предназначены для разработчиков, не для обычного запуска.
-3. Распакуйте ZIP в отдельную папку через «Извлечь всё…».
-4. Откройте распакованную папку и запустите **War2TriggerEditor.exe**.
+1. Скачайте [War2TriggerEditor-preview.zip](https://github.com/AyakaNyaa/War2TriggerEditor_2/releases/download/v0.3.0-preview.2/War2TriggerEditor-preview.zip).
+2. Распакуйте ZIP в отдельную папку через «Извлечь всё…».
+3. Откройте распакованную папку и запустите **War2TriggerEditor.exe**.
 
 Для запуска готового EXE устанавливать Rust, Node.js или Git не нужно.
 Установка редактора в систему и права администратора не требуются.
@@ -51,4 +49,4 @@
 но поведение сохранённых сценариев ещё нужно проверить в целевой сборке
 War2Combat/War2Mod. AI, ручной язык и полный редактор ландшафта сюда не входят.
 
-Разработчикам: [сборка из исходников](https://github.com/AyakaNyaa/War2TriggerEditor/blob/main/docs/DEVELOPMENT.md).
+Разработчикам: [сборка из исходников](https://github.com/AyakaNyaa/War2TriggerEditor_2/blob/codex/editor-reliability-20261117-6f140139/docs/DEVELOPMENT.md).
